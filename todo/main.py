@@ -1,26 +1,38 @@
 from kivy.app import App
 from kivy.uix.gridlayout import GridLayout
-from kivy.lang import Builder
-from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.image import Image
-from kivy.uix.dropdown import DropDown
 from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.scrollview import ScrollView
-from kivy.base import runTouchApp
-from additional_classes import Selfs,Images, red, blue, green,yellow
+from additional_classes import Selfs,Images, red, blue, green,yellow,Labels
 from kivy.config import Config
+import os
 
 Config.set('graphics', 'width', '540')
 Config.set('graphics', 'height', '960')
-Config.set('graphics', 'resizable', True)
+Config.set('graphics', 'resizable', False)
 Config.write()
 
 selfs = Selfs()
 images = Images()
+labels = Labels()
+count = 0
+with open(r"profile.txt", "r") as f:
+    for line in f:
+        count += 1
+f=open('profile.txt','r')
+if(count==2):
+    labels.name=f.readline()
+    labels.age=f.readline()
+else:
+    labels.name = f.readline()
+    a=f.readline()
+    labels.age = f.readline()
+f.close()
+
 
 class MainApp(App):
     def build(self):
@@ -70,8 +82,8 @@ class MainScreen(Screen):
                         color=red)
             layout.add_widget(lbl)
         root = ScrollView(size_hint=(1, None),
-                          size=(400, 300),
-                          pos_hint = {'center_x': .5, 'center_y': .35}
+                          size=(400, 200),
+                          pos_hint = {'center_x': .5, 'center_y': .3}
                           )
         root.add_widget(layout)
         Go_Screen2.bind(on_press=self.to_second_scrn)
@@ -161,15 +173,55 @@ class ProfileScreen(Screen):
                             size_hint=(None, None),
                             pos_hint={'center_x': .3, 'center_y': .1},
                             )
+        Name=Label(text="Имя пользователя",
+                   font_size=32,
+                   pos_hint={'center_x': .3, 'center_y': .9},
+                   color=(0 / 255, 0 / 255, 0 / 255)
+                   )
+        Nameinput = TextInput(text=labels.name,
+                              multiline=False,
+                              pos_hint={'center_x': .3, 'center_y': .85},
+                              size_hint=(.5, .05)
+                              )
+        Age = Label(text="Возраст",
+                     font_size=32,
+                     pos_hint={'center_x': .3, 'center_y': .8},
+                     color=(0 / 255, 0 / 255, 0 / 255)
+                     )
+        Ageinput = TextInput(text=labels.age,
+                              multiline=False,
+                              pos_hint={'center_x': .3, 'center_y': .75},
+                              size_hint=(.5, .05)
+                              )
+        Save = Button(text='Изменить и Сохранить',
+                            size=(200, 50),
+                            size_hint=(None, None),
+                            pos_hint={'center_x': .3, 'center_y': .68},
+                            )
         Go_Back.bind(on_press=self.to_main_scrn)
         Go_Options.bind(on_press=self.to_option_scrn)
+        Save.bind(on_press=self.save_changes)
+        def on_text(instance, value):
+            labels.name=value
+
+        def on_text1(instance, value):
+            labels.age = value
+        Nameinput.bind(text=on_text)
+        Ageinput.bind(text=on_text1)
+
         selfs.self2=self
         second_layout.add_widget(Background)
         second_layout.add_widget(Go_Back)
         second_layout.add_widget(Go_Options)
+        second_layout.add_widget(Name)
+        second_layout.add_widget(Nameinput)
+        second_layout.add_widget(Age)
+        second_layout.add_widget(Ageinput)
+        second_layout.add_widget(Save)
 
     def redraw(self):
         self.__init__()
+
     def to_main_scrn(self, *args):
         self.manager.current = 'Main'
         self.manager.transition.direction = 'down'
@@ -180,6 +232,18 @@ class ProfileScreen(Screen):
         self.manager.transition.direction = 'down'
         return 0
 
+
+
+    def save_changes(self, *args):
+        print("saved")
+        if os.path.isfile('profile.txt'):
+            os.remove('profile.txt')
+        file = open('profile.txt','w+')
+        print(labels.name)
+        print(labels.age)
+        file.write(labels.name+'\n')
+        file.write(labels.age)
+        file.close()
 
 
 class OptionsScreen(Screen):

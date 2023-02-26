@@ -4,6 +4,9 @@ class Selfs():
     self3 = None
 class Images():
     backimg = 'images/back1.png'
+class Labels():
+    name=''
+    age=''
 
 red = (255 / 255, 67 / 255, 67 / 255)
 green = (0 / 255, 158 / 255, 60 / 255)
