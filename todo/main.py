@@ -1,3 +1,4 @@
+
 from kivy.app import App
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
@@ -7,8 +8,9 @@ from kivy.uix.image import Image
 from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.scrollview import ScrollView
-from additional_classes import Selfs,Images, red, blue, green,yellow,Labels
+from additional_classes import Selfs,Images, red, blue, green,yellow,Labels,Backs
 from kivy.config import Config
+from kivy.clock import Clock
 import os
 
 Config.set('graphics', 'width', '540')
@@ -19,28 +21,54 @@ Config.write()
 selfs = Selfs()
 images = Images()
 labels = Labels()
-count = 0
-with open(r"profile.txt", "r") as f:
-    for line in f:
-        count += 1
+back=Backs()
 f=open('profile.txt','r')
-if(count==2):
-    labels.name=f.readline()
-    labels.age=f.readline()
-else:
-    labels.name = f.readline()
-    a=f.readline()
-    labels.age = f.readline()
+labels.name=f.readline()
+labels.age=f.readline()
+back.typeback=f.readline()
+if (back.typeback=="1"):
+    images.backimg='images/back1.png'
+elif(back.typeback=="2"):
+    images.backimg = 'images/back2.png'
+elif (back.typeback == "3"):
+    images.backimg = 'images/back3.png'
+elif(back.typeback=="4"):
+    images.backimg = 'images/back4.jpg'
+
 f.close()
 
-
 class MainApp(App):
+    global sm
+    sm = ScreenManager()
+    a=0
     def build(self):
+        sm.add_widget(SplashScreen())
         sm.add_widget(MainScreen())
         sm.add_widget(ProfileScreen())
         sm.add_widget(OptionsScreen())
         sm.add_widget(NoteScreen())
         return sm
+
+    def on_start(self):
+        Clock.schedule_once(self.change_screen,1)
+    def change_screen(self, dt):
+        sm.current="Main"
+
+class SplashScreen(Screen):
+    def __init__(self):
+        super().__init__()
+
+        self.name = 'Splash'
+
+        splash_layout = FloatLayout()
+
+        self.add_widget(splash_layout)
+        gif = Image(source='images/test.gif',
+                    pos_hint={'center_x': 0.5, 'center_y': 0.2},
+                    size_hint=(None,None),
+                    size=(130, 130),
+                    )
+        splash_layout.add_widget(gif)
 
 class MainScreen(Screen):
     def __init__(self):
@@ -58,8 +86,9 @@ class MainScreen(Screen):
             pos_hint={'center_x': 0.5, 'center_y': 0.5}
         )
         Plank = Image(
-            source='images/1.jpg',
-            pos_hint={'center_x': 0.5, 'center_y': 0},
+            source='images/plank.png',
+            size=(540,200),
+            pos_hint={'center_x': 0.5, 'center_y': 0.07},
         )
         Go_Screen2 = Button(text='',
                             background_normal="images/test1.png",
@@ -99,6 +128,7 @@ class MainScreen(Screen):
     def to_second_scrn(self, *args):
         self.manager.current = 'Profile'
         self.manager.transition.direction = 'up'
+        # self.manager.transition = "SwapTransition"
     def to_note_scrn(self, *args):
         self.manager.current = 'Note'
         self.manager.transition.direction = 'up'
@@ -231,9 +261,6 @@ class ProfileScreen(Screen):
         self.manager.current = 'Options'
         self.manager.transition.direction = 'down'
         return 0
-
-
-
     def save_changes(self, *args):
         print("saved")
         if os.path.isfile('profile.txt'):
@@ -241,8 +268,9 @@ class ProfileScreen(Screen):
         file = open('profile.txt','w+')
         print(labels.name)
         print(labels.age)
-        file.write(labels.name+'\n')
+        file.write(labels.name)
         file.write(labels.age)
+        file.write(back.typeback)
         file.close()
 
 
@@ -306,6 +334,7 @@ class OptionsScreen(Screen):
 
     def choose_red(self, *args):
         images.backimg='images/back1.png'
+        back.typeback="1"
         OptionsScreen.redraw(self)
         ProfileScreen.redraw(selfs.self2)
         MainScreen.redraw(selfs.self1)
@@ -314,6 +343,7 @@ class OptionsScreen(Screen):
 
     def choose_green(self, *args):
         images.backimg='images/back2.png'
+        back.typeback = "2"
         OptionsScreen.redraw(self)
         ProfileScreen.redraw(selfs.self2)
         MainScreen.redraw(selfs.self1)
@@ -322,6 +352,7 @@ class OptionsScreen(Screen):
 
     def choose_blue(self, *args):
         images.backimg = 'images/back3.png'
+        back.typeback = "3"
         OptionsScreen.redraw(self)
         ProfileScreen.redraw(selfs.self2)
         MainScreen.redraw(selfs.self1)
@@ -330,14 +361,13 @@ class OptionsScreen(Screen):
 
     def choose_yellow(self, *args):
         images.backimg = 'images/back4.jpg'
+        back.typeback = "4"
         OptionsScreen.redraw(self)
         ProfileScreen.redraw(selfs.self2)
         MainScreen.redraw(selfs.self1)
         NoteScreen.redraw(selfs.self3)
         return 0
 
-
-sm = ScreenManager()
 
 if __name__ == '__main__':
     MainApp().run()

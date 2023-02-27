@@ -7,6 +7,8 @@ class Images():
 class Labels():
     name=''
     age=''
+class Backs():
+    typeback="1"
 
 red = (255 / 255, 67 / 255, 67 / 255)
 green = (0 / 255, 158 / 255, 60 / 255)
