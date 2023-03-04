@@ -1,4 +1,6 @@
-
+from kivy.graphics import Color, Ellipse, Rectangle
+from kivy.uix.progressbar import ProgressBar
+from kivy.core.text import Label as CoreLabel
 from kivy.app import App
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
@@ -8,20 +10,41 @@ from kivy.uix.image import Image
 from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.scrollview import ScrollView
-from additional_classes import Selfs,Images, red, blue, green,yellow,Labels,Backs
+from additional_classes import Selfs,Images, red, blue, green,yellow,Labels,Backs,extras
 from kivy.config import Config
 from kivy.clock import Clock
+import plyer
+import sqlite3
 import os
 
 Config.set('graphics', 'width', '540')
-Config.set('graphics', 'height', '960')
+Config.set('graphics', 'height', '800')
 Config.set('graphics', 'resizable', False)
 Config.write()
 
+con=sqlite3.connect("tutorial.db")
+cur = con.cursor()
+# cur.execute("""
+#     INSERT INTO notes VALUES
+#         (?)
+# """,(data,))
+# con.commit()
+for row in cur.execute("SELECT note FROM notes"):
+    print(row)
+    extras.countnote+=1
+print("count="+str(extras.countnote))
+# data='test'
+# cur.execute("DELETE FROM notes WHERE note=(?)",(data,))
+# con.commit()
+# print("----------------------------------------------")
+# for row in cur.execute("SELECT note FROM notes"):
+#     print(row)
+# con.close()
 selfs = Selfs()
 images = Images()
 labels = Labels()
 back=Backs()
+extra=extras()
 f=open('profile.txt','r')
 labels.name=f.readline()
 labels.age=f.readline()
@@ -36,6 +59,55 @@ elif(back.typeback=="4"):
     images.backimg = 'images/back4.jpg'
 
 f.close()
+
+class CircularProgressBar(ProgressBar):
+
+    def __init__(self, **kwargs):
+        super(CircularProgressBar, self).__init__(**kwargs)
+
+        # Set constant for the bar thickness
+        self.thickness = 40
+
+        # Create a direct text representation
+        self.label = CoreLabel(text="", font_size=self.thickness)
+
+        # Initialise the texture_size variable
+        self.texture_size = None
+
+        # Refresh the text
+        self.refresh_text()
+
+
+        selfs.self5=self
+        # Redraw on innit
+        self.draw()
+
+    def draw(self):
+        with self.canvas:
+            self.canvas.clear()
+            Color(0.26, 0.26, 0.26)
+            Ellipse(pos=self.pos, size=self.size)
+            Color(0.5, 0, 0.5)
+            Ellipse(pos=self.pos, size=self.size,
+                    angle_end=(0.001 if self.value_normalized == 0 else self.value_normalized * 360))
+            Color(0, 0, 0)
+            Ellipse(pos=(self.pos[0] + self.thickness / 2, self.pos[1] + self.thickness / 2),
+                    size=(self.size[0] - self.thickness, self.size[1] - self.thickness))
+            Color(1, 1, 1, 1)
+            Rectangle(texture=self.label.texture, size=self.texture_size,
+                      pos=(self.size[0] / 2 - self.texture_size[0] / 2 + self.pos[0],
+                           self.size[1] / 2 - self.texture_size[1] / 2 + self.pos[1]))
+
+    def refresh_text(self):
+        self.label.refresh()
+        self.texture_size = list(self.label.texture.size)
+
+    def set_value(self, value):
+        self.value = value
+        self.label.text = str(int(self.value_normalized * 100)) + "%"
+        self.refresh_text()
+        self.draw()
+
 
 class MainApp(App):
     global sm
@@ -104,11 +176,13 @@ class MainScreen(Screen):
                             )
         layout = GridLayout(cols=1, spacing=10, size_hint_y=None)
         layout.bind(minimum_height=layout.setter('height'))
-        for i in range(6):
-            lbl = Button(text=str(i),
-                        size_hint_y=None,
-                        height=50,
-                        color=red)
+        for row in cur.execute("SELECT note FROM notes"):
+            print(row)
+            lbl = Button(text=str(row)[2:-3],
+                            size_hint_y=None,
+                            height=50,
+                            color=red)
+            lbl.bind(on_press=self.to_editnote_scrn)
             layout.add_widget(lbl)
         root = ScrollView(size_hint=(1, None),
                           size=(400, 200),
@@ -123,16 +197,24 @@ class MainScreen(Screen):
         main_layout.add_widget(Go_Screen2)
         main_layout.add_widget(Go_Note)
         main_layout.add_widget(root)
+
     def redraw(self):
         self.__init__()
     def to_second_scrn(self, *args):
         self.manager.current = 'Profile'
         self.manager.transition.direction = 'up'
-        # self.manager.transition = "SwapTransition"
     def to_note_scrn(self, *args):
         self.manager.current = 'Note'
         self.manager.transition.direction = 'up'
-
+    def to_editnote_scrn(self,instance, *args):
+        plyer.notification.notify(title='test',message='hi user')
+        extras.notetext = instance.text
+        print(extras.notetext)
+        cur.execute("DELETE FROM notes WHERE note=(?)", (extras.notetext,))
+        con.commit()
+        instance.disabled=True
+        extras.completenote+=1
+        ProfileScreen.redraw(selfs.self2)
 
 class NoteScreen(Screen):
     def __init__(self):
@@ -163,6 +245,9 @@ class NoteScreen(Screen):
                               size_hint = (.7, .3)
                         )
 
+        def on_text(instance, value):
+            labels.note = value
+        textinput.bind(text=on_text)
         Go_Back.bind(on_press=self.to_main_scrn)
         Save_Note.bind(on_press=self.save_note)
         selfs.self3=self
@@ -178,7 +263,14 @@ class NoteScreen(Screen):
         self.manager.transition.direction = 'up'
     def save_note(self, *args):
         print("note succesfully saved!")
-
+        print(labels.note)
+        if(labels.note!='') :
+            cur.execute("""
+                INSERT INTO notes VALUES
+                    (?)
+            """,(labels.note,))
+            con.commit()
+            MainScreen.redraw(selfs.self1)
 
 class ProfileScreen(Screen):
     def __init__(self):
@@ -192,7 +284,6 @@ class ProfileScreen(Screen):
             size_hint=(None, None),
             pos_hint={'center_x': 0.5, 'center_y': 0.5}
         )
-        # Button
         Go_Back = Button(text='Back',
                          size_hint=(.1, .05),
                          pos_hint={'center_x': .1, 'center_y': .1},
@@ -228,6 +319,11 @@ class ProfileScreen(Screen):
                             size_hint=(None, None),
                             pos_hint={'center_x': .3, 'center_y': .68},
                             )
+        progress=CircularProgressBar(max=extra.countnote,
+                                     value=extra.completenote,
+                                     pos=(400,590)
+                                    )
+        progress.refresh_text()
         Go_Back.bind(on_press=self.to_main_scrn)
         Go_Options.bind(on_press=self.to_option_scrn)
         Save.bind(on_press=self.save_changes)
@@ -248,7 +344,7 @@ class ProfileScreen(Screen):
         second_layout.add_widget(Age)
         second_layout.add_widget(Ageinput)
         second_layout.add_widget(Save)
-
+        second_layout.add_widget(progress)
     def redraw(self):
         self.__init__()
 
@@ -371,3 +467,4 @@ class OptionsScreen(Screen):
 
 if __name__ == '__main__':
     MainApp().run()
+con.close()
