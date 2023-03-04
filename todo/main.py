@@ -13,42 +13,37 @@ from kivy.uix.scrollview import ScrollView
 from additional_classes import Selfs,Images, red, blue, green,yellow,Labels,Backs,extras
 from kivy.config import Config
 from kivy.clock import Clock
+from kivy.uix.popup import Popup
 import plyer
 import sqlite3
-import os
+from kivy.core.window import Window
+from functools import partial
 
 Config.set('graphics', 'width', '540')
-Config.set('graphics', 'height', '800')
+Config.set('graphics', 'height', '960')
 Config.set('graphics', 'resizable', False)
 Config.write()
 
 con=sqlite3.connect("tutorial.db")
+con1=sqlite3.connect("prof.db")
+
+cur1 = con1.cursor()
 cur = con.cursor()
-# cur.execute("""
-#     INSERT INTO notes VALUES
-#         (?)
-# """,(data,))
-# con.commit()
 for row in cur.execute("SELECT note FROM notes"):
     print(row)
     extras.countnote+=1
-print("count="+str(extras.countnote))
-# data='test'
-# cur.execute("DELETE FROM notes WHERE note=(?)",(data,))
-# con.commit()
-# print("----------------------------------------------")
-# for row in cur.execute("SELECT note FROM notes"):
-#     print(row)
-# con.close()
+# print("count="+str(extras.countnote))
 selfs = Selfs()
 images = Images()
 labels = Labels()
 back=Backs()
 extra=extras()
-f=open('profile.txt','r')
-labels.name=f.readline()
-labels.age=f.readline()
-back.typeback=f.readline()
+res = cur1.execute("SELECT name,age,typeback FROM prof ")
+name,age,typeback=res.fetchone()
+# print(name,age,typeback)
+labels.name=name
+labels.age=age
+back.typeback=typeback
 if (back.typeback=="1"):
     images.backimg='images/back1.png'
 elif(back.typeback=="2"):
@@ -58,8 +53,6 @@ elif (back.typeback == "3"):
 elif(back.typeback=="4"):
     images.backimg = 'images/back4.jpg'
 
-f.close()
-
 class CircularProgressBar(ProgressBar):
 
     def __init__(self, **kwargs):
@@ -67,7 +60,7 @@ class CircularProgressBar(ProgressBar):
 
         # Set constant for the bar thickness
         self.thickness = 40
-
+        self.max=extras.countnote
         # Create a direct text representation
         self.label = CoreLabel(text="", font_size=self.thickness)
 
@@ -85,9 +78,11 @@ class CircularProgressBar(ProgressBar):
     def draw(self):
         with self.canvas:
             self.canvas.clear()
-            Color(0.26, 0.26, 0.26)
+            Color(0.5, 0.5, 0.5)
             Ellipse(pos=self.pos, size=self.size)
-            Color(0.5, 0, 0.5)
+            Color(1,0,0)
+
+
             Ellipse(pos=self.pos, size=self.size,
                     angle_end=(0.001 if self.value_normalized == 0 else self.value_normalized * 360))
             Color(0, 0, 0)
@@ -103,7 +98,7 @@ class CircularProgressBar(ProgressBar):
         self.texture_size = list(self.label.texture.size)
 
     def set_value(self, value):
-        self.value = value
+        self.value += value
         self.label.text = str(int(self.value_normalized * 100)) + "%"
         self.refresh_text()
         self.draw()
@@ -119,12 +114,15 @@ class MainApp(App):
         sm.add_widget(ProfileScreen())
         sm.add_widget(OptionsScreen())
         sm.add_widget(NoteScreen())
+        Window.bind(on_request_close=self.on_request_close)
         return sm
 
     def on_start(self):
         Clock.schedule_once(self.change_screen,1)
     def change_screen(self, dt):
         sm.current="Main"
+    def on_request_close(self,pp):
+        print("closed")
 
 class SplashScreen(Screen):
     def __init__(self):
@@ -209,11 +207,12 @@ class MainScreen(Screen):
     def to_editnote_scrn(self,instance, *args):
         plyer.notification.notify(title='test',message='hi user')
         extras.notetext = instance.text
-        print(extras.notetext)
+        # print(extras.notetext)
         cur.execute("DELETE FROM notes WHERE note=(?)", (extras.notetext,))
         con.commit()
         instance.disabled=True
         extras.completenote+=1
+        # print(extra.completenote)
         ProfileScreen.redraw(selfs.self2)
 
 class NoteScreen(Screen):
@@ -239,7 +238,7 @@ class NoteScreen(Screen):
                          size_hint=(.7, .05),
                          pos_hint={'center_x': .5, 'center_y': .6},
                          )
-        textinput = TextInput(text='Hello world',
+        textinput = TextInput(text='',
                               multiline=True,
                               pos_hint = {'center_x': .5, 'center_y': .8},
                               size_hint = (.7, .3)
@@ -262,8 +261,10 @@ class NoteScreen(Screen):
         self.manager.current = 'Main'
         self.manager.transition.direction = 'up'
     def save_note(self, *args):
-        print("note succesfully saved!")
-        print(labels.note)
+        # print("note succesfully saved!")
+        # print(labels.note)
+        extras.countnote += 1
+        # print(extras.countnote)
         if(labels.note!='') :
             cur.execute("""
                 INSERT INTO notes VALUES
@@ -271,6 +272,10 @@ class NoteScreen(Screen):
             """,(labels.note,))
             con.commit()
             MainScreen.redraw(selfs.self1)
+        ProfileScreen.redraw(selfs.self2)
+        self.manager.current = 'Main'
+        self.manager.transition.direction = 'up'
+
 
 class ProfileScreen(Screen):
     def __init__(self):
@@ -358,16 +363,23 @@ class ProfileScreen(Screen):
         self.manager.transition.direction = 'down'
         return 0
     def save_changes(self, *args):
-        print("saved")
-        if os.path.isfile('profile.txt'):
-            os.remove('profile.txt')
-        file = open('profile.txt','w+')
-        print(labels.name)
-        print(labels.age)
-        file.write(labels.name)
-        file.write(labels.age)
-        file.write(back.typeback)
-        file.close()
+        # print("saved")
+        count=0
+        for row in cur1.execute("SELECT id,name,age,typeback FROM prof"):
+            count+=1
+        if(count==0):
+            data=("1",labels.name,labels.age,back.typeback)
+            cur1.execute("""
+            INSERT INTO prof VALUES
+                (?,?,?,?)
+            """,data)
+        else:
+            cur1.execute('UPDATE prof SET name=?,age=?,typeback=? WHERE id=?',
+                         (labels.name, labels.age, back.typeback, "1"))
+        con1.commit()
+        # for row in cur1.execute("SELECT id,name,age,typeback FROM prof"):
+        #     print(row)
+
 
 
 class OptionsScreen(Screen):
@@ -468,3 +480,4 @@ class OptionsScreen(Screen):
 if __name__ == '__main__':
     MainApp().run()
 con.close()
+con1.close()
