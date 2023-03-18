@@ -14,6 +14,7 @@ from additional_classes import Selfs,Images, red, blue, green,yellow,Labels,Back
 from kivy.config import Config
 from kivy.clock import Clock
 from kivy.uix.popup import Popup
+import datetime
 import plyer
 import sqlite3
 from kivy.core.window import Window
@@ -23,21 +24,56 @@ Config.set('graphics', 'width', '540')
 Config.set('graphics', 'height', '960')
 Config.set('graphics', 'resizable', False)
 Config.write()
+now = datetime.datetime.now()
 
+#создание потоков в доступные бд
 con=sqlite3.connect("tutorial.db")
 con1=sqlite3.connect("prof.db")
-
+con2=sqlite3.connect("date.db")
+con3=sqlite3.connect("progress.db")
 cur1 = con1.cursor()
+cur2=con2.cursor()
 cur = con.cursor()
-for row in cur.execute("SELECT note FROM notes"):
+cur3=con3.cursor()
+
+# cur3.execute("CREATE TABLE progress(id,value,maxvalue)")
+for row in cur3.execute("SELECT value,maxvalue FROM progress"):
     print(row)
+# подсчет количества заметок в файле
+for row in cur.execute("SELECT note FROM notes"):
+    # print(row)
     extras.countnote+=1
 # print("count="+str(extras.countnote))
+
+# объявление объектов дополнительных классов
 selfs = Selfs()
 images = Images()
 labels = Labels()
 back=Backs()
 extra=extras()
+
+# проверка даты
+res1 = cur2.execute("SELECT month,day FROM date ")
+
+month,day=res1.fetchone()
+if(month==now.month and day==now.day):
+    print("true")
+    res2 = cur3.execute("SELECT value,maxvalue FROM progress ")
+    value, maxvalue = res2.fetchone()
+    extras.completenote = value
+    extras.countnote = maxvalue
+else:
+    print("false")
+    cur3.execute('UPDATE progress SET value=? WHERE id=?',
+                 (0, 1))
+    con3.commit()
+    res2 = cur3.execute("SELECT value,maxvalue FROM progress ")
+    value, maxvalue = res2.fetchone()
+    extras.completenote = value
+    extras.countnote = maxvalue
+
+
+# восстановление сохраненных настроек пользователя
 res = cur1.execute("SELECT name,age,typeback FROM prof ")
 name,age,typeback=res.fetchone()
 # print(name,age,typeback)
@@ -205,13 +241,16 @@ class MainScreen(Screen):
         self.manager.current = 'Note'
         self.manager.transition.direction = 'up'
     def to_editnote_scrn(self,instance, *args):
-        plyer.notification.notify(title='test',message='hi user')
+        plyer.notification.notify(title='Поздравляем!',message='Вы успешно выполнили еще одну задачу!')
         extras.notetext = instance.text
         # print(extras.notetext)
         cur.execute("DELETE FROM notes WHERE note=(?)", (extras.notetext,))
         con.commit()
         instance.disabled=True
         extras.completenote+=1
+        cur3.execute('UPDATE progress SET value=? WHERE id=?',
+                     (extras.completenote, 1))
+        con3.commit()
         # print(extra.completenote)
         ProfileScreen.redraw(selfs.self2)
 
@@ -273,8 +312,26 @@ class NoteScreen(Screen):
             con.commit()
             MainScreen.redraw(selfs.self1)
         ProfileScreen.redraw(selfs.self2)
+
+        print(str(now.month) + '.' + str(now.day))
+        cur2.execute('UPDATE date SET month=?,day=? WHERE id=?',
+                         (now.month, now.day, 1))
+        con2.commit()
+        data=(1,1,1)
+        # cur3.execute("""
+        #                 INSERT INTO progress VALUES
+        #                     (?,?,?)
+        #             """, data)
+        # con3.commit()
+        cur3.execute('UPDATE progress SET maxvalue=? WHERE id=?',
+                         (extras.countnote,1))
+        con3.commit()
+        for row in cur2.execute("SELECT id,month,day FROM date"):
+            print(row)
         self.manager.current = 'Main'
         self.manager.transition.direction = 'up'
+
+
 
 
 class ProfileScreen(Screen):
